@@ -1,0 +1,155 @@
+{
+  "name": "Adaptive Mood-Aware Auto-Responder with Intent Learning",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "sendTo": "={{ $('On form submission').item.json['Email Address'] }}",
+        "subject": "=Hello thank you for chatting, {{ $('On form submission').item.json['Your Name'] }}",
+        "message": "=Hello {{ $('On form submission').item.json['Your Name'] }} nakita ko ang iyong chat na \"{{ $('On form submission').item.json['Your Answer'] }}\" mag rereply din ako mamaya.",
+        "responseType": "={{ $('On form submission').item.json.formMode }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        176,
+        0
+      ],
+      "id": "d9ad75e9-c60f-4d7b-99e2-bd09ba1a34f2",
+      "name": "Send a message",
+      "webhookId": "9d9be8f7-cb6d-4431-befd-746b9b5c04cd",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "sI8sWTQPyOjFn9es",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.formMode }}",
+        "hasOutputParser": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -160,
+        0
+      ],
+      "id": "45f09eae-ffd5-4d37-8ee5-8e35f609f1df",
+      "name": "AI "
+    },
+    {
+      "parameters": {
+        "formTitle": "Submit your Answer",
+        "formDescription": "Please fill out the form below and submit your answers.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Your Name",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Email Address",
+              "fieldType": "email",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Your Answer",
+              "fieldType": "textarea",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        -336,
+        0
+      ],
+      "id": "fb944b27-f864-4bc5-b10f-66b8a116d58b",
+      "name": "On form submission",
+      "webhookId": "ade61495-47d7-40ca-9438-681198a9c02f"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -160,
+        160
+      ],
+      "id": "6e9f827c-773a-4513-b7c9-33d8f5da6123",
+      "name": "OpenAI ",
+      "credentials": {
+        "openAiApi": {
+          "id": "EI6WPqc4qOSRmIDV",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "AI ": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "AI ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI ": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI ",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "cf9e68e6-ae43-4418-9c43-119a76c83fed",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "fd5afb92a7284e4c61b5e7569f98a7abde526d45ea7785d3840f830210c00541"
+  },
+  "nodeGroups": [],
+  "id": "Mh3QynCvAsfOxaDf",
+  "tags": []
+}
