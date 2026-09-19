@@ -48,9 +48,6 @@ class LoanExpertSystemApp(tk.Tk):
         ttk.Label(root, text="Loan Analysis Expert System", style="Hero.TLabel").pack(anchor="w")
         ttk.Label(
             root,
-            text="Enter an applicant's numbers and run the analysis to see the system "
-                 "reason from the goal approve or deny back to the facts that support it.",
-            style="Lede.TLabel",
         ).pack(anchor="w", pady=(6, 16))
 
         workspace = ttk.Frame(root, style="Root.TFrame")
@@ -116,13 +113,11 @@ class LoanExpertSystemApp(tk.Tk):
         ttk.Checkbutton(panel, text="History of default on a prior loan",
                          variable=self.default_var).pack(anchor="w", pady=(0, 16))
 
-        ttk.Button(panel, text="Run analysis", style="Run.TButton",
+        ttk.Button(panel, text="Run powered by CLIPS analysis", style="Run.TButton",
                    command=self.run_analysis).pack(fill="x")
 
         ttk.Label(
             panel,
-            text="Employment status and history length are captured on every "
-                 "application but aren't part of the approval rules yet.",
             style="Muted.TLabel", wraplength=340, justify="left",
         ).pack(anchor="w", pady=(14, 0))
 
@@ -136,8 +131,7 @@ class LoanExpertSystemApp(tk.Tk):
         ttk.Label(panel, text="Reasoning trace", style="Heading.TLabel").pack(anchor="w", pady=(0, 6))
         ttk.Label(
             panel,
-            text="Backward-chaining: the system starts from the goal and checks "
-                 "which rule's conditions actually hold.",
+            text="CLIPS Rule Engine: Evaluating conditions from rules memory.",
             style="Muted.TLabel", wraplength=340, justify="left",
         ).pack(anchor="w", pady=(0, 14))
 
@@ -171,14 +165,22 @@ class LoanExpertSystemApp(tk.Tk):
         self.verdict_reason.pack(fill="x", pady=(0, 10))
 
     def run_analysis(self):
+        try:
+            inc = self.income_var.get()
+            scr = self.score_var.get()
+            hist = self.history_var.get()
+            deb = self.debts_var.get()
+        except tk.TclError:
+            inc, scr, hist, deb = 0, 0, 0, 0
+
         applicant = {
             "applicant_id": self.applicant_id_var.get().strip() or "—",
             "full_name": self.full_name_var.get().strip() or "—",
             "employment_status": self.employment_var.get(),
-            "monthly_income": self.income_var.get(),
-            "credit_score": self.score_var.get(),
-            "credit_history_length": self.history_var.get(),
-            "existing_debts": self.debts_var.get(),
+            "monthly_income": inc,
+            "credit_score": scr,
+            "credit_history_length": hist,
+            "existing_debts": deb,
             "documents_complete": self.docs_var.get(),
             "default_history": self.default_var.get(),
             "decision": "pending",
@@ -200,8 +202,8 @@ class LoanExpertSystemApp(tk.Tk):
         )
 
         decision = applicant["decision"]
-        color_key = {"approved": "approve", "denied": "deny", "review": "review"}[decision]
-        label_text = {"approved": "APPROVE", "denied": "DENY", "review": "REFER TO REVIEW"}[decision]
+        color_key = {"approved": "approve", "denied": "deny", "review": "review"}.get(decision, "review")
+        label_text = {"approved": "APPROVE", "denied": "DENY", "review": "REFER TO REVIEW"}.get(decision, "REVIEW")
 
         self.verdict_label.config(text=label_text, fg=COLORS[color_key])
         self.verdict_reason.config(text=applicant["reason"])

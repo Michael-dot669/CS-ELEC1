@@ -1,51 +1,87 @@
-# engine.py
+import clips
 
 def run_inference(applicant, trace):
-    """Mutates `applicant` dict in place, appends (label, detail, status)
-    tuples to `trace` for the UI to render, and returns the applicant."""
+    trace.append(("Goal", "Decide an outcome using CLIPS Expert System.", "info"))
 
-    trace.append(("Goal", "Decide an outcome for this application.", "info"))
+    env = clips.Environment()
 
-    if not applicant["documents_complete"]:
+    try:
+        env.load("loan_rules.clp")
+    except Exception as e:
+        trace.append(("Error", f"Failed to load loan_rules.clp: {e}", "deny"))
         applicant["decision"] = "review"
-        applicant["reason"] = "Application file is incomplete and needs manual follow-up."
-        trace.append(("Check file", "Documents are incomplete.", "review"))
+        applicant["reason"] = "Could not load CLIPS rules file."
         return applicant
 
-    trace.append(("Check file", "Documents are complete.", "pass"))
-
-    income = applicant["monthly_income"]
-    debts = applicant["existing_debts"]
+    # Calculate DTI
+    income = float(applicant.get("monthly_income", 0))
+    debts = float(applicant.get("existing_debts", 0))
     dti = (debts / income * 100.0) if income > 0 else 0.0
     applicant["dti_ratio"] = dti
-    trace.append(("Compute DTI", f"{debts:,} / {income:,} x 100 = {dti:.1f}%", "info"))
 
-    score = applicant["credit_score"]
-    has_default = applicant["default_history"]
+    trace.append(("Compute DTI", f"{debts:,.0f} / {income:,.0f} x 100 = {dti:.1f}%", "info"))
 
-    deny_holds = score < 550 or has_default
-    trace.append((
-        "Rule 2 — Deny",
-        f"Score {score} (need < 550) or default on file: {'yes' if has_default else 'no'}.",
-        "deny" if deny_holds else "fail",
-    ))
-    if deny_holds:
-        applicant["decision"] = "denied"
-        applicant["reason"] = "Credit score and/or a prior default do not meet the minimum bar."
-        return applicant
+    # Map Python data to CLIPS
+    app_id = applicant.get("applicant_id") or "N/A"
+    full_name = applicant.get("full_name") or "N/A"
+    
+    emp = applicant.get("employment_status", "employed")
+    emp_status = "Self-Employed" if emp == "self-employed" else ("Unemployed" if emp == "unemployed" else "Employed")
+    
+    docs_complete = "yes" if applicant.get("documents_complete") else "no"
+    has_default = "yes" if applicant.get("default_history") else "no"
+    score = int(applicant.get("credit_score", 650))
+    history_yrs = float(applicant.get("credit_history_length", 0))
 
-    approve_holds = score >= 700 and dti <= 30.0
-    trace.append((
-        "Rule 1 — Approve",
-        f"Score {score} (need >= 700), DTI {dti:.1f}% (need <= 30%).",
-        "approve" if approve_holds else "fail",
-    ))
-    if approve_holds:
-        applicant["decision"] = "approved"
-        applicant["reason"] = f"Credit score {score} and DTI {dti:.1f}% clear the approval thresholds."
-        return applicant
+    fact_str = f"""
+    (applicant 
+        (applicant-id "{app_id}")
+        (full-name "{full_name}")
+        (employment-status {emp_status})
+        (monthly-income {income})
+        (credit-score {score})
+        (credit-history-years {history_yrs})
+        (existing-debts {debts})
+        (debt-to-income {dti:.1f})
+        (documents-complete {docs_complete})
+        (history-of-default {has_default})
+    )
+    """
 
-    applicant["decision"] = "review"
-    applicant["reason"] = f"Score {score} / DTI {dti:.1f}% falls between the approve and deny thresholds."
-    trace.append(("Rule 3 — Refer to review", "Neither rule fired outright.", "review"))
+    env.assert_string(fact_str)
+    trace.append(("Assert Fact", "Applicant facts loaded into CLIPS memory.", "info"))
+
+    # Run CLIPS rules
+    env.run()
+
+    # Get decision from CLIPS
+    decision_found = False
+    for fact in env.facts():
+        if fact.template.name == "decision":
+            decision_found = True
+            raw_status = str(fact["status"]).lower()
+            reason = str(fact["reason"])
+            rule_fired = str(fact["rule-fired"])
+
+            if raw_status == "approve":
+                status_tag = "approved"
+                trace_tag = "approve"
+            elif raw_status == "deny":
+                status_tag = "denied"
+                trace_tag = "deny"
+            else:
+                status_tag = "review"
+                trace_tag = "review"
+
+            applicant["decision"] = status_tag
+            applicant["reason"] = f"[{rule_fired}] {reason}"
+
+            trace.append((f"Fired: {rule_fired}", reason, trace_tag))
+            break
+
+    if not decision_found:
+        applicant["decision"] = "review"
+        applicant["reason"] = "No CLIPS rule triggered."
+        trace.append(("Fallback", "No CLIPS decision fact created.", "review"))
+
     return applicant
